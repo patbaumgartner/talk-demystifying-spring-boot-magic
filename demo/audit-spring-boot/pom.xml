@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+        Inherits Spring Boot's dependency management without turning this into
+        a Spring Boot application itself. The BOM brings in all version pins.
+    -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-dependencies</artifactId>
+    <version>4.1.0</version>
+    <relativePath></relativePath>
+  </parent>
+
+  <groupId>com.fortytwotalents</groupId>
+  <artifactId>audit-spring-boot-parent</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>audit-spring-boot :: parent</name>
+  <description>Parent POM for the audit Spring Boot starter</description>
+
+  <modules>
+    <module>audit-spring-boot-autoconfigure</module>
+    <module>audit-spring-boot-starter</module>
+  </modules>
+
+  <properties>
+    <jacoco.version>0.8.15</jacoco.version>
+    <java.version>21</java.version>
+    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!--
+      Reproducible builds: all plugins that write timestamps into build artefacts
+      (jar manifests, module-info, etc.) read this property and use it instead of
+      the current wall-clock time.  Set it to any fixed ISO-8601 instant; update
+      it when you cut a release (e.g. to the git-commit timestamp).
+
+      Spec: https://maven.apache.org/guides/mini/guide-reproducible-builds.html
+    -->
+    <project.build.outputTimestamp>2026-06-10T00:00:00Z</project.build.outputTimestamp>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.fortytwotalents</groupId>
+        <artifactId>audit-spring-boot-autoconfigure</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>${java.version}</release>
+        </configuration>
+      </plugin>
+      <!--
+        Maven Enforcer: gate-keeps reproducible-build requirements at 'validate'
+        phase so the build fails fast with a clear message rather than producing
+        a non-reproducible artefact silently.
+
+        Rules:
+          requireMavenVersion  – Maven 3.9+ is the first version with full
+                                  reproducible-build support across all core
+                                  plugins.
+          requireJavaVersion   – Pins the compiler version; different JDKs can
+                                  produce different bytecode for the same source.
+          requireProperty      – Ensures project.build.outputTimestamp is present
+                                  and matches the ISO-8601 instant format expected
+                                  by Maven's reproducible-build machinery.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-reproducible-build</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                  <message>Maven 3.9 or later is required for full reproducible-build support.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[${java.version},)</version>
+                  <message>Java ${java.version} or later is required.</message>
+                </requireJavaVersion>
+                <requireProperty>
+                  <property>project.build.outputTimestamp</property>
+                  <message>project.build.outputTimestamp must be set to an ISO-8601 instant (e.g. 2026-06-10T00:00:00Z) to enable reproducible builds.</message>
+                  <regex>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z</regex>
+                  <regexMessage>project.build.outputTimestamp must be an ISO-8601 UTC instant, e.g. 2026-06-10T00:00:00Z</regexMessage>
+                </requireProperty>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <phase>test</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

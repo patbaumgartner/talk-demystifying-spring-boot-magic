@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.fortytwotalents</groupId>
+    <artifactId>audit-spring-boot-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>audit-spring-boot-autoconfigure</artifactId>
+
+  <name>audit-spring-boot :: autoconfigure</name>
+  <description>Auto-configuration for the audit starter.
+        This module contains the beans and conditions – no user code goes here.</description>
+
+  <dependencies>
+
+    <!-- Provided: Spring Boot – present in every consumer app at runtime -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+
+    <!-- Logging API – not transitively available from spring-boot-autoconfigure in Boot 4 -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <!--
+            Jakarta Validation API – optional so consumers who don't have a JSR-303
+            provider on the classpath still work. When present (e.g. Hibernate Validator
+            via spring-boot-starter-validation), @Validated on AuditProperties will
+            reject an explicitly blank audit.topic at startup.
+        -->
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!--
+            spring-boot-configuration-processor is declared here so that IDEs
+            (IntelliJ, VS Code) pick up spring-configuration-metadata.json for
+            property auto-completion. The actual compile-time processing is wired
+            via annotationProcessorPaths below so it does not end up on the
+            consumer's runtime classpath.
+        -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- ApplicationContextRunner needs the full autoconfigure test support -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-test-autoconfigure</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Provides ValidationAutoConfiguration + Hibernate Validator for @Validated tests -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!--
+            Wire both annotation processors explicitly so Maven uses them at
+            compile time without adding them to the consumer's classpath.
+
+            spring-boot-configuration-processor  → META-INF/spring-configuration-metadata.json
+                                                    (IDE property auto-completion)
+            spring-boot-autoconfigure-processor  → META-INF/spring-autoconfigure-metadata.properties
+                                                    (startup optimisation: conditions evaluated
+                                                     eagerly before loading the configuration class)
+          -->
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-configuration-processor</artifactId>
+            </path>
+            <path>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-autoconfigure-processor</artifactId>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,28 @@
+# Normalise line endings to LF in the repo
+* text=auto eol=lf
+
+# Shell scripts: always LF
+*.sh text eol=lf
+mvnw text eol=lf
+
+# Windows scripts: always CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+mvnw.cmd text eol=crlf
+
+# Java / XML / config: text, LF
+*.java text eol=lf
+*.xml text eol=lf
+*.properties text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sql text eol=lf
+*.http text eol=lf
+*.md text eol=lf
+
+# Binary: no diffing, no conversion
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.gif binary

@@ -1,0 +1,51 @@
+# Grafana Mimir – minimal single-process configuration for local development.
+#
+# Mimir is Grafana's cloud-native, Prometheus-compatible metrics backend.
+# It replaces Prometheus as the metrics store in the LGTM stack
+# (Loki · Grafana · Tempo · Mimir).
+#
+# Ingestion endpoints (all on :9009):
+#   OTLP HTTP push  POST /otlp/v1/metrics        ← OTel Collector forwards here
+#   Remote write    POST /api/v1/push             ← Tempo metrics generator
+#
+# Query endpoint (Prometheus-compatible PromQL):
+#   GET  /prometheus/api/v1/query{_range}         ← Grafana datasource
+#
+# Do NOT use this configuration in production.
+
+# Disable multi-tenancy so no X-Scope-OrgID header is required.
+multitenancy_enabled: false
+
+server:
+  http_listen_port: 9009
+  log_level: warn
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/mimir/blocks
+  tsdb:
+    dir: /data/mimir/tsdb
+
+compactor:
+  data_dir: /data/mimir/compactor
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+ruler_storage:
+  backend: local
+  local:
+    directory: /data/mimir/rules

@@ -1,0 +1,63 @@
+# Grafana datasource provisioning
+# Automatically wires Mimir, Loki, and Tempo on first startup.
+# No manual UI configuration required.
+
+apiVersion: 1
+
+datasources:
+  # ── Grafana Mimir ──────────────────────────────────────────────────────────
+  # Mimir exposes a Prometheus-compatible query API, so Grafana uses the
+  # prometheus plugin type.  All PromQL dashboards work without modification.
+  - name: Mimir
+    type: prometheus
+    uid: mimir
+    url: http://mimir:9009/prometheus
+    access: proxy
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      prometheusType: Mimir
+      prometheusVersion: 2.15.0
+      # Link Mimir exemplars to Tempo traces
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: tempo
+
+  # ── Loki ───────────────────────────────────────────────────────────────────
+  - name: Loki
+    type: loki
+    uid: loki
+    url: http://loki:3100
+    access: proxy
+    jsonData:
+      # Derived field: extract traceId from the JSON log body and
+      # render a "View Trace" link that opens the span in Tempo.
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"traceId":"([a-f0-9]{32})"'
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+
+  # ── Tempo ──────────────────────────────────────────────────────────────────
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://tempo:3200
+    access: proxy
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: false
+      tracesToMetrics:
+        datasourceUid: mimir
+        queries:
+          - name: Request rate
+            query: sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))
+      serviceMap:
+        datasourceUid: mimir
+      nodeGraph:
+        enabled: true
+      lokiSearch:
+        datasourceUid: loki

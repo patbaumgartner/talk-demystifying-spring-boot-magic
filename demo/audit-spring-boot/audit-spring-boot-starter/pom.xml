@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.fortytwotalents</groupId>
+    <artifactId>audit-spring-boot-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>audit-spring-boot-starter</artifactId>
+
+  <name>audit-spring-boot :: starter</name>
+  <description>Spring Boot starter for audit event logging.
+
+        This module is intentionally empty – it is just a POM that pulls in
+        the autoconfigure module (and any required third-party libraries).
+        Consumers add only this dependency and get everything they need.</description>
+
+  <dependencies>
+
+    <!-- The autoconfigure module that contains the actual beans and conditions -->
+    <dependency>
+      <groupId>com.fortytwotalents</groupId>
+      <artifactId>audit-spring-boot-autoconfigure</artifactId>
+    </dependency>
+
+    <!--
+            Add third-party library dependencies here if the starter wraps one.
+            For example, if this starter wrapped a Kafka client:
+
+            <dependency>
+                <groupId>org.springframework.kafka</groupId>
+                <artifactId>spring-kafka</artifactId>
+            </dependency>
+        -->
+
+  </dependencies>
+</project>

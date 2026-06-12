@@ -1,0 +1,116 @@
+### ─────────────────────────────────────────────────────────────────────────
+### Claims Service – demo script
+###
+### VS Code REST Client (humao.rest-client)
+### Requests are separated by ###
+### Named requests (#@name) allow later requests to reference their response
+### via {{requestName.response.body.$.fieldPath}}
+###
+### ClaimRequest body fields:
+###   type        String  required (@NotBlank)
+###   insuredId   String  required (@NotBlank)
+###   description String  optional
+###
+### Claim response fields:
+###   id        String (UUID)
+###   type      String
+###   status    SUBMITTED | APPROVED | REJECTED
+###   insuredId String
+### ─────────────────────────────────────────────────────────────────────────
+
+@baseUrl = http://localhost:8080
+
+### ── Happy path ────────────────────────────────────────────────────────────
+
+### 1. Submit a new claim  (→ 201 CREATED)
+# @name submitClaim
+POST {{baseUrl}}/claims
+Content-Type: application/json
+X-User-Id: user:42
+
+{
+  "type": "DENTAL",
+  "insuredId": "ins-1",
+  "description": "Annual check-up and filling"
+}
+
+###
+
+### 2. List all claims  (→ 200 OK, array of Claim objects)
+GET {{baseUrl}}/claims
+
+###
+
+### 3. Get the submitted claim  (→ 200 OK, status = SUBMITTED)
+GET {{baseUrl}}/claims/{{submitClaim.response.body.$.id}}
+
+###
+
+### 4. Approve the claim  (→ 200 OK, status = APPROVED)
+PUT {{baseUrl}}/claims/{{submitClaim.response.body.$.id}}/approve
+X-User-Id: reviewer:7
+
+###
+
+### 5. Try to approve again  (→ 409 CONFLICT + RFC 7807 ProblemDetail)
+PUT {{baseUrl}}/claims/{{submitClaim.response.body.$.id}}/approve
+X-User-Id: reviewer:7
+
+###
+
+### ── Error scenarios ────────────────────────────────────────────────────────
+
+### 6. Submit without 'type'  (→ 400 BAD REQUEST + ProblemDetail)
+POST {{baseUrl}}/claims
+Content-Type: application/json
+X-User-Id: user:42
+
+{
+  "insuredId": "ins-2",
+  "description": "Missing type field"
+}
+
+###
+
+### 7. Submit without 'insuredId'  (→ 400 BAD REQUEST + ProblemDetail)
+POST {{baseUrl}}/claims
+Content-Type: application/json
+X-User-Id: user:42
+
+{
+  "type": "VISION",
+  "description": "Missing insuredId field"
+}
+
+###
+
+### 8. Get a non-existent claim  (→ 404 NOT FOUND + ProblemDetail)
+GET {{baseUrl}}/claims/00000000-0000-0000-0000-000000000000
+
+###
+
+### ── Reject path ───────────────────────────────────────────────────────────
+
+### 9. Submit a second claim  (→ 201 CREATED)
+# @name submitClaim2
+POST {{baseUrl}}/claims
+Content-Type: application/json
+X-User-Id: user:99
+
+{
+  "type": "VISION",
+  "insuredId": "ins-2",
+  "description": "Contact lenses"
+}
+
+###
+
+### 10. Reject the second claim  (→ 200 OK, status = REJECTED)
+PUT {{baseUrl}}/claims/{{submitClaim2.response.body.$.id}}/reject
+X-User-Id: reviewer:7
+
+###
+
+### 11. Try to reject an already-rejected claim  (→ 409 CONFLICT + ProblemDetail)
+PUT {{baseUrl}}/claims/{{submitClaim2.response.body.$.id}}/reject
+X-User-Id: reviewer:7

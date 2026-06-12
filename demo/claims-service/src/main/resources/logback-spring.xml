@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- Spring Boot defaults: LOG_LEVEL_PATTERN, CONSOLE_LOG_PATTERN, etc. -->
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <!-- Bind spring.application.name for the console pattern -->
+  <springProperty scope="context"
+                  name="appName"
+                  source="spring.application.name"
+                  defaultValue="claims-service"/>
+
+  <!-- Console appender – always active -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>
+        %d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [${appName},%X{traceId:-},%X{spanId:-}] [%thread] %logger{36} - %msg%n%ex
+      </pattern>
+    </encoder>
+  </appender>
+
+  <!--
+    OTel Logback appender – bridges Logback events into the OTel SDK.
+    The SDK exports them via OTLP HTTP to the OTel Collector (port 4318),
+    which forwards them to Loki. Spring Boot auto-configures the OTel
+    instance via spring-boot-starter-opentelemetry; no extra wiring needed.
+
+    captureMdcAttributes="*" passes traceId/spanId through as OTel log
+    record attributes so Grafana can correlate logs <=> traces.
+
+    Only active outside tests – the test profile uses console only.
+  -->
+  <springProfile name="!test"> 
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+      <captureExperimentalAttributes>true</captureExperimentalAttributes>
+      <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+  </springProfile>
+
+  <!-- App logs -->
+  <logger name="com.fortytwotalents" level="DEBUG"/>
+
+  <!-- Reduce noisy infrastructure logs -->
+  <logger name="org.testcontainers" level="INFO"/>
+  <logger name="com.zaxxer.hikari" level="INFO"/>
+
+  <springProfile name="test">
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
+
+  <springProfile name="!test">
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="OTEL"/>
+    </root>
+  </springProfile>
+
+</configuration>
