@@ -1,0 +1,61 @@
+# Grafana Loki – log aggregation backend (single-process / monolithic mode)
+#
+# Receives logs from Loki4j appender running in the claims-service JVM.
+# Stores on local filesystem under /tmp/loki.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /tmp/loki
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+# Reduce ring stabilization delay so Loki is ready immediately after startup
+ingester:
+  lifecycler:
+    min_ready_duration: 0s
+
+# ── Query caching ────────────────────────────────────────────────────────────
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+# ── Schema ──────────────────────────────────────────────────────────────────
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# ── Limits ──────────────────────────────────────────────────────────────────
+limits_config:
+  # Accept logs up to 7 days old (handy for local dev / replay)
+  reject_old_samples: false
+  reject_old_samples_max_age: 168h
+  allow_structured_metadata: true
+
+ruler:
+  alertmanager_url: http://localhost:9093
+
+# ── Analytics (disable phone-home in local dev) ──────────────────────────────
+analytics:
+  reporting_enabled: false

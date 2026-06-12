@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.0</version>
+    <relativePath></relativePath>
+  </parent>
+
+  <groupId>com.fortytwotalents</groupId>
+  <artifactId>claims-service</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <name>claims-service</name>
+  <description>Sample Spring Boot application demonstrating the audit-spring-boot-starter.
+
+        This service intentionally does NOT configure any audit beans – the starter
+        auto-configures everything automatically via the audit-spring-boot-starter dependency.</description>
+
+  <properties>
+    <jacoco.version>0.8.15</jacoco.version>
+    <java.version>21</java.version>
+    <jmolecules.version>2025.0.2</jmolecules.version>
+    <!--
+      OTel instrumentation artifacts are not managed by the Spring Boot BOM.
+      Pin to the version that ships with OTel SDK 1.62.0 (used by Spring Boot 4.1).
+    -->
+    <opentelemetry.version>1.62.0</opentelemetry.version>
+    <opentelemetry-api-incubator.version>1.62.0-alpha</opentelemetry-api-incubator.version>
+    <opentelemetry-instrumentation.version>2.21.0-alpha</opentelemetry-instrumentation.version>
+
+    <!--
+      Reproducible builds: all plugins that write timestamps into build artefacts
+      (jar manifests, module-info, etc.) read this property and use it instead of
+      the current wall-clock time.  Set it to any fixed ISO-8601 instant; update
+      it when you cut a release (e.g. to the git-commit timestamp).
+
+      Spec: https://maven.apache.org/guides/mini/guide-reproducible-builds.html
+    -->
+    <project.build.outputTimestamp>2026-06-10T00:00:00Z</project.build.outputTimestamp>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!--
+        Spring Modulith BOM: aligns all spring-modulith-* artifact versions.
+        Spring Boot 4.0 does not yet bundle Modulith, so we manage it separately.
+      -->
+      <dependency>
+        <groupId>org.springframework.modulith</groupId>
+        <artifactId>spring-modulith-bom</artifactId>
+        <version>2.0.5</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!--
+        jMolecules BOM: aligns jmolecules-hexagonal-architecture and all other
+        jmolecules artifacts to a tested set of versions.
+      -->
+      <dependency>
+        <groupId>org.jmolecules</groupId>
+        <artifactId>jmolecules-bom</artifactId>
+        <version>${jmolecules.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+
+    <!-- Web layer -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+    </dependency>
+
+    <!--
+            The audit starter – this is the only thing needed to get audit logging.
+            No @Bean, no XML, no @Configuration required in the application.
+
+            NOTE: install the audit starter first:
+              cd ../audit-spring-boot && ./mvnw install
+        -->
+    <dependency>
+      <groupId>com.fortytwotalents</groupId>
+      <artifactId>audit-spring-boot-starter</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+
+    <!-- Actuator - exposes /actuator/conditions to inspect auto-configuration -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Input validation – activates @Valid / @NotBlank / @Validated -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Spring Data JDBC – repository abstraction over plain JDBC (no JPA/ORM) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jdbc</artifactId>
+    </dependency>
+
+    <!-- PostgreSQL JDBC driver – runtime only, no compile-time API needed -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Flyway: manages schema migrations (claims table + event_publication outbox) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-flyway</artifactId>
+    </dependency>
+
+    <!-- PostgreSQL-specific Flyway support (required for Flyway 10+) -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <!--
+      Docker Compose support: when compose.yaml is present, Spring Boot
+      automatically starts/stops the compose services around the application.
+      Marked optional so it is not pulled into downstream consumers.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-docker-compose</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jdbc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-flyway-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-opentelemetry-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-restclient-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Testcontainers: @ServiceConnection wires the container's JDBC URL / credentials
+      directly into Spring Boot's DataSource auto-configuration – no manual property
+      overrides required.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- PostgreSQL Testcontainer image wrapper -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JUnit Jupiter integration: @Testcontainers + @Container lifecycle management -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- ── Spring Modulith ──────────────────────────────────────────────────── -->
+
+    <!--
+      Core: module structure, event API, and application runtime support.
+      Enables @Modulithic and verifies module arrangement at startup/test time.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-starter-core</artifactId>
+    </dependency>
+
+    <!--
+      Actuator: exposes /actuator/modulith with the live module graph.
+      Declared runtime-only – no compile-time API needed.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-actuator</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!--
+      JDBC event publication log: the outbox pattern for cross-module events.
+      Stores ClaimSubmittedEvent / ClaimApprovedEvent / ClaimRejectedEvent in the
+      event_publication table and delivers them to listeners after transaction commit,
+      guaranteeing at-least-once delivery even if the process crashes between commit
+      and listener execution.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-events-jdbc</artifactId>
+    </dependency>
+
+    <!--
+      Jackson-based EventSerializer: required by spring-modulith-events-jdbc to
+      serialise/deserialise event payloads stored in the event_publication table.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-events-jackson</artifactId>
+    </dependency>
+
+    <!--
+      Test support: ApplicationModules.verify(), PublishedEvents,
+      AssertablePublishedEvents, @ApplicationModuleTest.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      jMolecules Hexagonal Architecture: provides @PrimaryPort, @SecondaryPort,
+      @PrimaryAdapter, @SecondaryAdapter, @DomainLayer, and @ApplicationLayer
+      annotations that express hexagonal architecture intent directly on classes,
+      interfaces, and package-info files.
+    -->
+    <dependency>
+      <groupId>org.jmolecules</groupId>
+      <artifactId>jmolecules-hexagonal-architecture</artifactId>
+    </dependency>
+
+    <!-- ── Observability: OpenTelemetry ───────────────────────────────────── -->
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-opentelemetry</artifactId>
+    </dependency>
+
+    <!--
+      OTel Logback appender: bridges Logback events into the OTel SDK so
+      logs are exported via OTLP to the OTel Collector → Loki.
+      Not included in spring-boot-starter-opentelemetry; must be added explicitly.
+      Compile scope (not runtime) so ClaimsApplication can call
+      OpenTelemetryAppender.install(openTelemetry) to wire the Logback bridge
+      to the Spring-managed OpenTelemetry SDK instance on startup.
+    -->
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+      <version>${opentelemetry-instrumentation.version}</version>
+    </dependency>
+
+    <!--
+      Align incubator API with the OTel SDK version managed by Spring Boot.
+      This prevents NoSuchMethodError from mixed incubator API generations.
+    -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api-incubator</artifactId>
+      <version>${opentelemetry-api-incubator.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <!--
+        Maven Enforcer: gate-keeps reproducible-build requirements at 'validate'
+        phase so the build fails fast with a clear message rather than producing
+        a non-reproducible artefact silently.
+
+        Rules:
+          requireMavenVersion  – Maven 3.9+ is the first version with full
+                                  reproducible-build support across all core
+                                  plugins.
+          requireJavaVersion   – Pins the compiler version; different JDKs can
+                                  produce different bytecode for the same source.
+          requireProperty      – Ensures project.build.outputTimestamp is present
+                                  and matches the ISO-8601 instant format expected
+                                  by Maven's reproducible-build machinery.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-reproducible-build</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                  <message>Maven 3.9 or later is required for full reproducible-build support.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[${java.version},)</version>
+                  <message>Java ${java.version} or later is required.</message>
+                </requireJavaVersion>
+                <requireProperty>
+                  <property>project.build.outputTimestamp</property>
+                  <message>project.build.outputTimestamp must be set to an ISO-8601 instant (e.g. 2026-06-10T00:00:00Z) to enable reproducible builds.</message>
+                  <regex>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z</regex>
+                  <regexMessage>project.build.outputTimestamp must be an ISO-8601 UTC instant, e.g. 2026-06-10T00:00:00Z</regexMessage>
+                </requireProperty>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <phase>test</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <!--
+        Exposes each test-scoped dependency's resolved JAR path as a Maven property
+        (e.g. ${org.mockito:mockito-core:jar}) so we can reference it in argLine.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>mockito-agent-properties</id>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!--
+        Add Mockito as an explicit Java agent so it no longer needs to self-attach
+        at runtime (self-attaching will be disallowed in a future JDK release).
+        @{argLine} passes through the JaCoCo agent added by the jacoco:prepare-agent goal.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

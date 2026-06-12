@@ -1,0 +1,57 @@
+# Grafana Tempo – distributed tracing backend
+#
+# Receives traces from the OTel Collector via OTLP gRPC.
+# Exposes HTTP query API on :3200 for Grafana.
+# Metrics generator pushes RED metrics + service graphs to Mimir.
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+# ── Trace ingest ────────────────────────────────────────────────────────────
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+# Replaced ingester in Tempo 3.0 (monolithic mode)
+live_store:
+  max_block_duration: 5m
+
+# ── Metrics generator ───────────────────────────────────────────────────────
+# Generates span-based RED metrics (request rate, error rate, duration) and
+# service-graph edges, written to Mimir via remote write.
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: docker-compose
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://mimir:9009/api/v1/push
+        send_exemplars: true
+
+# ── Storage ─────────────────────────────────────────────────────────────────
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+# ── Per-tenant overrides ────────────────────────────────────────────────────
+overrides:
+  defaults:
+    compaction:
+      block_retention: 24h
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics
+      generate_native_histograms: both

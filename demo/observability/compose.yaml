@@ -1,0 +1,111 @@
+# Observability stack – OTel Collector, Tempo, Loki, Mimir, Grafana
+#
+# Start:  docker compose -f observability/compose.yaml up -d
+# Stop:   docker compose -f observability/compose.yaml down
+
+services:
+  # ── OpenTelemetry Collector ──────────────────────────────────────────────
+  # Receives all three OTel signals from the claims-service JVM (OTLP HTTP 4318)
+  # and fans them out to the appropriate LGTM backend:
+  #   traces  → Tempo  (OTLP gRPC 4317)
+  #   metrics → Mimir  (OTLP HTTP 9009)
+  #   logs    → Loki   (OTLP HTTP /otlp/v1/logs 3100)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.154.0
+    volumes:
+      - ./otel-collector/otelcol-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - '4317:4317'   # OTLP gRPC
+      - '4318:4318'   # OTLP HTTP  ← Spring Boot sends traces here
+      - '8888:8888'   # Collector self-metrics (optional, for debugging)
+    depends_on:
+      tempo:
+        condition: service_started
+    healthcheck:
+      test: [ 'CMD', '/otelcol-contrib', '--version' ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Grafana Tempo ────────────────────────────────────────────────────────
+  # Stores distributed traces; queried by Grafana for trace visualisation.
+  tempo:
+    image: grafana/tempo:3.0.2
+    command: [ '-config.file=/etc/tempo.yaml' ]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - '3200:3200'   # Tempo HTTP API (Grafana datasource)
+      - '4327:4317'   # OTLP gRPC (receives from OTel Collector)
+    depends_on:
+      mimir:
+        condition: service_started
+    restart: on-failure
+
+  # ── Grafana Loki ─────────────────────────────────────────────────────────
+  # Log aggregation backend; receives logs from the OTel Collector.
+  loki:
+    image: grafana/loki:3.7.2
+    command: [ '-config.file=/etc/loki/loki-config.yaml' ]
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+    ports:
+      - '3100:3100'   # Loki HTTP API  ← OTel Collector pushes logs here
+    restart: on-failure
+
+  # ── Grafana Mimir ────────────────────────────────────────────────────────
+  # Cloud-native, Prometheus-compatible metrics backend (LGTM stack).
+  # Receives metrics via:
+  #   OTLP HTTP  POST /otlp/v1/metrics        ← OTel Collector
+  #   Remote write POST /api/v1/push          ← Tempo metrics generator
+  # Exposes Prometheus-compatible PromQL API at :9009/prometheus.
+  mimir:
+    image: grafana/mimir:2.15.0
+    command: [ '-config.file=/etc/mimir/mimir.yaml' ]
+    volumes:
+      - ./mimir/mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - mimir-data:/data/mimir
+    ports:
+      - '9009:9009'   # HTTP API (query, remote-write, OTLP ingest)
+    # Mimir uses a distroless/scratch image – no shell or wget available for
+    # in-container health checks. Dependent services use restart: on-failure
+    # to handle the startup race gracefully.
+    restart: on-failure
+
+  # ── Grafana ──────────────────────────────────────────────────────────────
+  # Visualises metrics (Prometheus), logs (Loki), and traces (Tempo).
+  # Anonymous admin access enabled for local development.
+  # Dashboard and datasources are pre-provisioned from ./grafana.
+  grafana:
+    image: grafana/grafana:13.0.2
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor traceToMetrics
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - '3000:3000'   # Grafana UI  ← open http://localhost:3000
+    depends_on:
+      mimir:
+        condition: service_started
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+    restart: on-failure
+    healthcheck:
+      test: [ 'CMD', 'wget', '-qO-', 'http://localhost:3000/api/health' ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  tempo-data:
+  mimir-data:
+  grafana-data:
